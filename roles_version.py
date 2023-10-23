@@ -41,15 +41,17 @@ class WerewolfGame:
         num_seers = int(input("Enter the number of seers: "))
         num_jesters = int(input("Enter the number of jesters: "))
         num_drunkers = int(input("Enter the number of drunkers: "))
+        num_troublemakers = int(input("Enter the number of troublemakers: "))
 
         # Validate input
         if (
-            num_players < num_wolves + num_villagers + num_seers + num_jesters + num_drunkers
+            num_players < num_wolves + num_villagers + num_seers + num_jesters + num_drunkers + num_troublemakers
             or num_wolves < 1
             or num_villagers < 0
             or num_seers < 0
             or num_jesters < 0
             or num_drunkers < 0
+            or num_troublemakers < 0
         ):
             print("Invalid input. Please ensure the numbers are correct.")
             return
@@ -75,6 +77,10 @@ class WerewolfGame:
             player_name = input(f"Enter the name of Drunker {i + 1}: ")
             self.players.append(Player(player_name, 'Drunker'))
 
+        for i in range(num_troublemakers):
+            player_name = input(f"Enter the name of Troublemaker {i + 1}: ")
+            self.players.append(Player(player_name, 'Troublemaker'))
+
         # Call assign_roles to assign roles to players
         self.assign_roles()
 
@@ -94,7 +100,9 @@ class WerewolfGame:
 
         # Count the number of werewolves
         num_werewolves = sum(1 for player in self.players if player.survived and player.role == 'Werewolf')
-        num_villagers = sum(1 for player in self.players if player.survived and player.role == 'Villager')
+
+        # Count the number of villagers (all non-werewolf classes)
+        num_villagers = sum(1 for player in self.players if player.survived and player.role != 'Werewolf')
 
         if num_werewolves == 0 or num_werewolves >= num_villagers:
             print("Game over! Werewolves have taken over or no werewolves left.")
@@ -141,20 +149,6 @@ class WerewolfGame:
             else:
                 print("Invalid target. The Seer chooses not to inspect anyone.")
 
-        # # Drunker action can choose
-        # drunker = next((player for player in self.players if player.survived and player.role == 'Drunker'),
-        #                None)
-        # if drunker:
-        #     target_name = input(f"{drunker.name}, the Drunker, choose a player to swap roles with: ")
-        #     target = next((p for p in self.players if p.name == target_name and p.survived), None)
-        #
-        #     if target:
-        #         print(f"{drunker.name} and {target.name} are swapping roles!")
-        #         drunker_role, target_role = drunker.role, target.role
-        #         drunker.role, target.role = target_role, drunker_role
-        #     else:
-        #         print("Invalid target. The Drunker chooses not to swap roles.")
-
         # Drunker action
         drunker = next((player for player in self.players if player.survived and player.role == 'Drunker'), None)
         if drunker:
@@ -167,6 +161,34 @@ class WerewolfGame:
                 drunker.role, target.role = target_role, drunker_role
             else:
                 print(f"{drunker.name} chooses not to swap roles.")
+
+        # Troublemaker action
+        troublemaker = next((player for player in self.players if player.survived and player.role == 'Troublemaker'),
+                            None)
+        if troublemaker:
+            perform_action = input(
+                f"{troublemaker.name}, the Troublemaker, do you want to perform the action? (yes/no): ").lower()
+            if perform_action == 'yes':
+                self.troublemaker_action(troublemaker)
+            else:
+                print(f"{troublemaker.name} chooses not to perform the action.")
+
+    def troublemaker_action(self, troublemaker):
+        print(f"{troublemaker.name}, the Troublemaker, is causing trouble!")
+
+        # Choose two players to swap roles
+        player1_name = input("Enter the name of the first player to swap roles: ")
+        player1 = next((p for p in self.players if p.name == player1_name and p.survived), None)
+
+        player2_name = input("Enter the name of the second player to swap roles: ")
+        player2 = next((p for p in self.players if p.name == player2_name and p.survived), None)
+
+        if player1 and player2:
+            print(f"{troublemaker.name} is swapping the roles of {player1.name} and {player2.name}!")
+            player1_role, player2_role = player1.role, player2.role
+            player1.role, player2.role = player2_role, player1_role
+        else:
+            print("Invalid players. The Troublemaker chooses not to swap roles.")
 
     def day_phase(self):
         print("\nDay phase:")
@@ -225,6 +247,7 @@ class WerewolfGame:
             num_seer = sum(1 for player in self.players if player.survived and player.role == 'Seer')
             num_jester = sum(1 for player in self.players if player.survived and player.role == 'Jester')
             num_drunker = sum(1 for player in self.players if player.survived and player.role == 'Drunker')
+            num_troublemaker = sum(1 for player in self.players if player.survived and player.role == 'Troublemaker')
 
             # Check if the game should continue
             remaining_players = [player for player in self.players if player.survived]
@@ -239,6 +262,7 @@ class WerewolfGame:
             print(f"Number of Seers: {num_seer}")
             print(f"Number of Jesters: {num_jester}")
             print(f"Number of Drunkers: {num_drunker}")
+            print(f"Number of Troublemakers: {num_troublemaker}")
             print('')
 
             self.display_survivors()
