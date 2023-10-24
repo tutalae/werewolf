@@ -1,4 +1,4 @@
-import random
+import sys, random
 
 class Player:
     def __init__(self, name, role):
@@ -10,8 +10,10 @@ class Player:
         print(f"Oh no! {self.name}, a werewolf is attacking {target.name}!")
 
         # Simplified: Werewolf attack outcome is now deterministic (instant death)
+        print('\n'*3)
         print(f"{target.name} is bitten by the werewolf. Game over!")
         target.survived = False
+        print('\n'*3)
 
     def seer_inspect(self, target):
         print(f"{self.name}, the Seer, is inspecting {target.name}...")
@@ -21,8 +23,66 @@ class Player:
         else:
             print(f"{target.name} is not a Werewolf!")
 
+    def hunter_shot(self, players, post_mortem=False):
+        if not post_mortem and not self.survived:
+            print(f"{self.name}, the Hunter, cannot shoot because they are already eliminated.")
+            return
+
+        if not post_mortem and self.survived:  # Added check for Hunter being alive
+            print(f"{self.name}, the Hunter, is choosing a player to shoot!")
+
+            # Display the list of available players
+            print("Available players:")
+            for player in players:
+                if player.survived:
+                    print(player.name)
+
+            # Prompt the Hunter to choose a target
+            target_name = input("Enter the name of the player you want to shoot: ")
+            target = next((p for p in players if p.name == target_name and p.survived), None)
+
+            if target:
+                print(f"{self.name}, the Hunter, is shooting {target.name}!")
+
+                # Hunter shot outcome is now deterministic (instant death)
+                print('\n' * 3)
+                print(f"{target.name} is shot by the Hunter. Game over!")
+                target.survived = False
+                print('\n' * 3)
+            else:
+                print("Invalid target. The Hunter chooses not to shoot anyone.")
+        elif post_mortem and self.survived:  # Added check for Hunter being alive
+            print(f"{self.name}, the Hunter, takes a post-mortem shot!")
+
+            # Display the list of available players
+            print("Available players:")
+            for player in players:
+                if player.survived and player.role != 'Hunter':
+                    print(player.name)
+
+            # Prompt the Hunter to choose a target
+            target_name = input("Enter the name of the player you want to shoot post-mortem: ")
+            target = next((p for p in players if p.name == target_name and p.survived), None)
+
+            if target:
+                print(f"{self.name}, the Hunter, takes a post-mortem shot and shoots {target.name}!")
+
+                # Hunter post-mortem shot outcome is now deterministic (instant death)
+                print('\n' * 3)
+                print(f"{target.name} is shot by the Hunter post-mortem. Game over!")
+                target.survived = False
+                print('\n' * 3)
+            else:
+                print("Invalid target. The Hunter post-mortem chooses not to shoot anyone.")
+        else:
+            print(f"{self.name}, the Hunter, cannot shoot because they are already eliminated.")
+
     def vote_out(self, target):
         print(f"{self.name} votes to eliminate {target.name}!")
+
+        # Hunter takes a shot if voted out
+        if self.role == 'Hunter':
+            self.hunter_shot([target], post_mortem=True)
 
     def display_status(self):
         status = "Survived" if self.survived else "Eliminated"
@@ -42,16 +102,21 @@ class WerewolfGame:
         num_jesters = int(input("Enter the number of jesters: "))
         num_drunkers = int(input("Enter the number of drunkers: "))
         num_troublemakers = int(input("Enter the number of troublemakers: "))
+        num_mayor = int(input("Enter the number of mayor: "))
+        num_hunter = int(input("Enter the number of hunter: "))
 
         # Validate input
         if (
-            num_players < num_wolves + num_villagers + num_seers + num_jesters + num_drunkers + num_troublemakers
+            num_players < num_wolves + num_villagers + num_seers + num_jesters + num_drunkers + num_troublemakers \
+            + num_mayor + num_hunter
             or num_wolves < 1
             or num_villagers < 0
             or num_seers < 0
             or num_jesters < 0
             or num_drunkers < 0
             or num_troublemakers < 0
+            or num_mayor < 0
+            or num_hunter < 0
         ):
             print("Invalid input. Please ensure the numbers are correct.")
             return
@@ -81,6 +146,15 @@ class WerewolfGame:
             player_name = input(f"Enter the name of Troublemaker {i + 1}: ")
             self.players.append(Player(player_name, 'Troublemaker'))
 
+        for i in range(num_mayor):
+            player_name = input(f"Enter the name of Mayor {i + 1}: ")
+            self.players.append(Player(player_name, 'Mayor'))
+
+        for i in range(num_hunter):
+            player_name = input(f"Enter the name of Hunter {i + 1}: ")
+            self.players.append(Player(player_name, 'Hunter'))
+
+        print('\n' * 10)
         # Call assign_roles to assign roles to players
         self.assign_roles()
 
@@ -94,6 +168,7 @@ class WerewolfGame:
             roles.remove(role)
 
             print(f"{player.name}: {role}")
+            print('\n'*10)
 
     def night_phase(self):
         print("\nNight phase:")
@@ -107,6 +182,8 @@ class WerewolfGame:
         if num_werewolves == 0 or num_werewolves >= num_villagers:
             print("Game over! Werewolves have taken over or no werewolves left.")
             return
+
+        max_hunters = len([player for player in self.players if player.role == 'Hunter' and player.survived])
 
         # Werewolf actions
         if num_werewolves >= 2:
@@ -137,6 +214,18 @@ class WerewolfGame:
                         print("Invalid target. The werewolf attacks a random player.")
                         target = random.choice([p for p in self.players if p != player and p.survived])
                         player.werewolf_attack(target)
+
+        # Hunter takes a shot after being attacked by werewolves
+        hunters = [player for player in self.players if player.role == 'Hunter' and player.survived]
+
+        # Identify deceased Hunter
+        dead_hunters = [hunter for hunter in hunters if not hunter.survived]
+
+        # Check if there is at least one deceased Hunter
+        if dead_hunters:
+            # Choose one deceased Hunter to take a post-mortem shot
+            dead_hunter = dead_hunters[0]
+            dead_hunter.hunter_shot(self.players, post_mortem=True)
 
         # Seer action
         seer = next((player for player in self.players if player.survived and player.role == 'Seer'), None)
@@ -194,23 +283,67 @@ class WerewolfGame:
         print("\nDay phase:")
         votes = {player: 0 for player in self.players if player.survived}
 
-        # Simulate the voting
-        print("Players, collectively choose a player to vote out:")
-        target_name = input("Enter the name of the player you want to vote out: ")
-        target = next((p for p in self.players if p.name == target_name and p.survived), None)
+        # Ask players if they want to vote someone out
+        vote_choice = input("Players, do you want to vote someone out? (yes/no): ").lower()
 
-        if target:
-            for player in self.players:
-                if player.survived:
-                    player.vote_out(target)
-                    votes[target] += 1
+        if vote_choice == 'yes':
+            # Simulate the voting
+            print("Players, collectively choose a player to vote out:")
+            target_name = input("Enter the name of the player you want to vote out: ")
+            target = next((p for p in self.players if p.name == target_name and p.survived), None)
+
+            if target:
+                for player in self.players:
+                    if player.survived:
+                        # player.vote_out(target)
+                        votes[target] += 1
+            else:
+                print("Invalid target. No one is voted out this round.")
+
+            # Eliminate the player with the most votes
+            max_votes_player = max(votes, key=votes.get)
+            print(f"\n{max_votes_player.name} has been voted out!\n")
+            max_votes_player.survived = False
+        elif vote_choice == 'no':
+            print("Players decide not to vote anyone out this round.")
         else:
-            print("Invalid target. No one is voted out this round.")
+            print("Invalid choice. Players decide not to vote anyone out this round.")
 
-        # Eliminate the player with the most votes
-        max_votes_player = max(votes, key=votes.get)
-        print(f"\n{max_votes_player.name} has been voted out!\n")
-        max_votes_player.survived = False
+    def check_game_status(self):
+        num_werewolves = sum(1 for player in self.players if player.survived and player.role == 'Werewolf')
+        num_villagers = sum(1 for player in self.players if player.survived and player.role == 'Villager')
+        num_seer = sum(1 for player in self.players if player.survived and player.role == 'Seer')
+        num_jester = sum(1 for player in self.players if player.survived and player.role == 'Jester')
+        num_drunker = sum(1 for player in self.players if player.survived and player.role == 'Drunker')
+        num_troublemaker = sum(1 for player in self.players if player.survived and player.role == 'Troublemaker')
+        num_mayor = sum(1 for player in self.players if player.survived and player.role == 'Mayor')
+        num_hunter = sum(1 for player in self.players if player.survived and player.role == 'Hunter')
+
+        remaining_non_werewolf_roles = num_villagers + num_seer + num_jester + num_drunker + num_troublemaker \
+                                       + num_mayor + num_hunter
+
+        print('')
+        print(f"\nNumber of Werewolves: {num_werewolves}")
+        print(f"Number of Villagers: {num_villagers}")
+        print(f"Number of Seers: {num_seer}")
+        print(f"Number of Jesters: {num_jester}")
+        print(f"Number of Drunkers: {num_drunker}")
+        print(f"Number of Troublemakers: {num_troublemaker}")
+        print(f"Number of Mayors: {num_mayor}")
+        print(f"Number of Hunters: {num_hunter}")
+        print('')
+
+        if num_werewolves == 0:
+            print("No more werewolves!")
+            sys.exit()
+
+        if remaining_non_werewolf_roles <= num_werewolves:
+            print("All remaining players are equal or less than werewolves!")
+            sys.exit()
+
+        return not (
+                num_werewolves == 0 or remaining_non_werewolf_roles == num_werewolves
+        )
 
     def display_survivors(self):
         print("\nSurvivors:")
@@ -225,47 +358,39 @@ class WerewolfGame:
 
             # Check if the game should continue
             remaining_players = [player for player in self.players if player.survived]
+            print(f"\nNumber of people survived after Night {round_number}: {len(remaining_players)}\n")
             if len(remaining_players) <= 1:
                 break
 
             # Display status after each night
             for player in self.players:
                 player.display_status()
-
-            print(f"\nNumber of people survived after Night {round_number}: {len(remaining_players)}\n")
+            print('\n')
 
             # Reveal the identities of the werewolves
             werewolves = [player.name for player in self.players if player.role == 'Werewolf' and player.survived]
             print("Werewolves revealed:", ", ".join(werewolves), "\n")
 
+            print('checking status ...')
+            self.check_game_status()
+
             # Day phase
             self.day_phase()
 
-            # Count and display the number of players for each role
-            num_werewolves = sum(1 for player in self.players if player.survived and player.role == 'Werewolf')
-            num_villagers = sum(1 for player in self.players if player.survived and player.role == 'Villager')
-            num_seer = sum(1 for player in self.players if player.survived and player.role == 'Seer')
-            num_jester = sum(1 for player in self.players if player.survived and player.role == 'Jester')
-            num_drunker = sum(1 for player in self.players if player.survived and player.role == 'Drunker')
-            num_troublemaker = sum(1 for player in self.players if player.survived and player.role == 'Troublemaker')
-
             # Check if the game should continue
             remaining_players = [player for player in self.players if player.survived]
-            if num_werewolves == num_villagers:
-                break
-            if num_werewolves == 0:
+            print(f"\nNumber of people survived after Days {round_number}: {len(remaining_players)}\n")
+            if len(remaining_players) <= 1:
                 break
 
-            print('')
-            print(f"\nNumber of Werewolves: {num_werewolves}")
-            print(f"Number of Villagers: {num_villagers}")
-            print(f"Number of Seers: {num_seer}")
-            print(f"Number of Jesters: {num_jester}")
-            print(f"Number of Drunkers: {num_drunker}")
-            print(f"Number of Troublemakers: {num_troublemaker}")
-            print('')
+            self.check_game_status()
 
             self.display_survivors()
+
+            # Hunter takes a shot during the night
+            hunters = [player for player in self.players if player.role == 'Hunter' and player.survived]
+            for hunter in hunters:
+                hunter.hunter_shot(self.players)
 
             round_number += 1
 
