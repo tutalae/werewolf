@@ -80,9 +80,6 @@ class Player:
     def vote_out(self, target):
         print(f"{self.name} votes to eliminate {target.name}!")
 
-        # Hunter takes a shot if voted out
-        if self.role == 'Hunter':
-            self.hunter_shot([target], post_mortem=True)
 
     def display_status(self):
         status = "Survived" if self.survived else "Eliminated"
@@ -280,7 +277,8 @@ class WerewolfGame:
             print("Invalid players. The Troublemaker chooses not to swap roles.")
 
     def day_phase(self):
-        print("\nDay phase:")
+        print("\nDay phase:")        
+        
         votes = {player: 0 for player in self.players if player.survived}
 
         # Ask players if they want to vote someone out
@@ -308,6 +306,20 @@ class WerewolfGame:
             print("Players decide not to vote anyone out this round.")
         else:
             print("Invalid choice. Players decide not to vote anyone out this round.")
+            
+        # Hunter takes a shot during the night
+        hunters = [player for player in self.players if player.role == 'Hunter' and player.survived]
+
+        for hunter in hunters:
+            # Ask for confirmation
+            user_input = input(f"{hunter.name}, do you want to take a shot? (yes/no): ").lower()
+
+            if user_input == 'yes':
+                # Call the hunter_shot method only if the player confirms
+                hunter.hunter_shot(self.players)
+            else:
+                print(f"{hunter.name} decided not to take a shot.")
+
 
     def check_game_status(self):
         num_werewolves = sum(1 for player in self.players if player.survived and player.role == 'Werewolf')
@@ -335,10 +347,12 @@ class WerewolfGame:
 
         if num_werewolves == 0:
             print("No more werewolves!")
+            print("Game End!!")
             sys.exit()
 
         if remaining_non_werewolf_roles <= num_werewolves:
             print("All remaining players are equal or less than werewolves!")
+            print("Game End!!")
             sys.exit()
 
         return not (
@@ -346,7 +360,12 @@ class WerewolfGame:
         )
 
     def display_survivors(self):
-        print("\nSurvivors:")
+        print("Survivors:")
+        for player in self.players:
+            print("\n"*5)
+            player.display_status()
+        print("\n"*5)
+        
         for player in self.players:
             player.display_status()
 
@@ -364,6 +383,7 @@ class WerewolfGame:
 
             # Display status after each night
             for player in self.players:
+                print('\n')
                 player.display_status()
             print('\n')
 
@@ -386,11 +406,6 @@ class WerewolfGame:
             self.check_game_status()
 
             self.display_survivors()
-
-            # Hunter takes a shot during the night
-            hunters = [player for player in self.players if player.role == 'Hunter' and player.survived]
-            for hunter in hunters:
-                hunter.hunter_shot(self.players)
 
             round_number += 1
 
