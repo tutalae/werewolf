@@ -5,15 +5,19 @@ class Player:
         self.name = name
         self.role = role
         self.survived = True
+        self.protected_by_witch_doctor = False  # New attribute
 
     def werewolf_attack(self, target):
         print(f"Oh no! {self.name}, a werewolf is attacking {target.name}!")
 
-        # Simplified: Werewolf attack outcome is now deterministic (instant death)
-        print('\n'*3)
-        print(f"{target.name} is bitten by the werewolf. Game over!")
-        target.survived = False
-        print('\n'*3)
+        if target.protected_by_witch_doctor:
+            print(f"But wait! {target.name} is protected by the Witch Doctor. They survive the attack!")
+            target.protected_by_witch_doctor = False
+        else:
+            print('\n' * 3)
+            print(f"{target.name} is bitten by the werewolf. Game over!")
+            target.survived = False
+            print('\n' * 3)
 
     def seer_inspect(self, target):
         print(f"{self.name}, the Seer, is inspecting {target.name}...")
@@ -101,11 +105,12 @@ class WerewolfGame:
         num_troublemakers = int(input("Enter the number of troublemakers: "))
         num_mayor = int(input("Enter the number of mayor: "))
         num_hunter = int(input("Enter the number of hunter: "))
+        num_witch_doctor = int(input("Enter the number of witch doctor: "))
 
         # Validate input
         if (
             num_players < num_wolves + num_villagers + num_seers + num_jesters + num_drunkers + num_troublemakers \
-            + num_mayor + num_hunter
+            + num_mayor + num_hunter + num_witch_doctor
             or num_wolves < 1
             or num_villagers < 0
             or num_seers < 0
@@ -114,6 +119,7 @@ class WerewolfGame:
             or num_troublemakers < 0
             or num_mayor < 0
             or num_hunter < 0
+            or num_witch_doctor < 0
         ):
             print("Invalid input. Please ensure the numbers are correct.")
             return
@@ -150,6 +156,10 @@ class WerewolfGame:
         for i in range(num_hunter):
             player_name = input(f"Enter the name of Hunter {i + 1}: ")
             self.players.append(Player(player_name, 'Hunter'))
+        
+        for i in range(num_witch_doctor):
+            player_name = input(f"Enter the name of Witch Doctor {i + 1}: ")
+            self.players.append(Player(player_name, 'Witch Doctor'))
 
         print('\n' * 10)
         # Call assign_roles to assign roles to players
@@ -169,6 +179,24 @@ class WerewolfGame:
 
     def night_phase(self):
         print("\nNight phase:")
+        
+        # Doctor action
+        witch_doctor = next((player for player in self.players if player.survived and player.role == 'Witch Doctor'), None)
+        if witch_doctor:
+            protect_decision = input(f"{witch_doctor.name}, the Witch Doctor, do you want to protect someone this night? (yes/no): ").lower()
+
+            if protect_decision == 'yes':
+                target_name = input("Choose a player to protect: ")
+                target = next((p for p in self.players if p.name == target_name and p.survived), None)
+
+                if target:
+                    target.protected_by_witch_doctor = True  # Fix: set the attribute to True
+                    print(f"{witch_doctor.name} protects {target.name}!")
+                    print(f"If {target.name} is not attacked, they potentially turn into a werewolf.")
+                else:
+                    print("Invalid target. The Witch Doctor chooses not to protect anyone.")
+            else:
+                print(f"{witch_doctor.name} chooses not to protect anyone this night.")
 
         # Count the number of werewolves
         num_werewolves = sum(1 for player in self.players if player.survived and player.role == 'Werewolf')
@@ -202,7 +230,7 @@ class WerewolfGame:
             # Each werewolf chooses a target to attack
             for player in self.players:
                 if player.survived and player.role == 'Werewolf':
-                    target_name = input(f"{player.name}, choose a player to attack: ")
+                    target_name = input(f"Werewolf {player.name}, choose a player to attack: ")
                     target = next((p for p in self.players if p.name == target_name and p.survived), None)
 
                     if target:
@@ -211,6 +239,15 @@ class WerewolfGame:
                         print("Invalid target. The werewolf attacks a random player.")
                         target = random.choice([p for p in self.players if p != player and p.survived])
                         player.werewolf_attack(target)
+                        
+        # Check if protected players turn into werewolves
+        for player in self.players:
+            if player.protected_by_witch_doctor and player.survived:
+                print(f"{player.name} was protected by the Doctor and did not get attacked. They turn into a Werewolf!")
+                player.role = 'Werewolf'
+
+                # Reset protection for the next round
+                player.protected_by_witch_doctor = False
 
         # Hunter takes a shot after being attacked by werewolves
         hunters = [player for player in self.players if player.role == 'Hunter' and player.survived]
@@ -330,9 +367,10 @@ class WerewolfGame:
         num_troublemaker = sum(1 for player in self.players if player.survived and player.role == 'Troublemaker')
         num_mayor = sum(1 for player in self.players if player.survived and player.role == 'Mayor')
         num_hunter = sum(1 for player in self.players if player.survived and player.role == 'Hunter')
+        num_witch_doctor = sum(1 for player in self.players if player.survived and player.role == 'Witch Doctor')
 
         remaining_non_werewolf_roles = num_villagers + num_seer + num_jester + num_drunker + num_troublemaker \
-                                       + num_mayor + num_hunter
+                                       + num_mayor + num_hunter + num_witch_doctor
 
         print('')
         print(f"\nNumber of Werewolves: {num_werewolves}")
@@ -343,6 +381,7 @@ class WerewolfGame:
         print(f"Number of Troublemakers: {num_troublemaker}")
         print(f"Number of Mayors: {num_mayor}")
         print(f"Number of Hunters: {num_hunter}")
+        print(f"Number of Witch Doctor: {num_witch_doctor}")
         print('')
 
         if num_werewolves == 0:
@@ -360,6 +399,7 @@ class WerewolfGame:
         )
 
     def display_survivors(self):
+        print("\n"*5)
         print("Survivors:")
         for player in self.players:
             print("\n"*5)
