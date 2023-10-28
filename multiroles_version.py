@@ -81,18 +81,18 @@ class Player:
         else:
             print(f"{self.name}, the Hunter, cannot shoot because they are already eliminated.")
             
-    def troublemaker_action(self, troublemaker):
-        print(f"{troublemaker.name}, the Troublemaker, is causing trouble!")
+    def troublemaker_action(self, werewolf_game):
+        print(f"{self.name}, the Troublemaker, is causing trouble!")
 
         # Choose two players to swap roles
         player1_name = input("Enter the name of the first player to swap roles: ")
-        player1 = next((p for p in self.players if p.name == player1_name and p.survived), None)
+        player1 = next((p for p in werewolf_game.players if p.name == player1_name and p.survived), None)
 
         player2_name = input("Enter the name of the second player to swap roles: ")
-        player2 = next((p for p in self.players if p.name == player2_name and p.survived), None)
+        player2 = next((p for p in werewolf_game.players if p.name == player2_name and p.survived), None)
 
         if player1 and player2:
-            print(f"{troublemaker.name} is swapping the roles of {player1.name} and {player2.name}!")
+            print(f"{self.name} is swapping the roles of {player1.name} and {player2.name}!")
             player1_role, player2_role = player1.role, player2.role
             player1.role, player2.role = player2_role, player1_role
         else:
@@ -197,9 +197,12 @@ class WerewolfGame:
     def night_phase(self):
         print("\nNight phase:")
         
+        print("\n"*3)
+        
         # Doctor action
         witch_doctor = next((player for player in self.players if player.survived and player.role == 'Witch Doctor'), None)
         if witch_doctor:
+            print("Under the cloak of night, the village sleeps. Witch Doctor, wake up!")
             protect_decision = input(f"{witch_doctor.name}, the Witch Doctor, do you want to protect someone this night? (yes/no): ").lower()
 
             if protect_decision == 'yes':
@@ -214,7 +217,11 @@ class WerewolfGame:
                     print("Invalid target. The Witch Doctor chooses not to protect anyone.")
             else:
                 print(f"{witch_doctor.name} chooses not to protect anyone this night.")
+                
+            print("The mystical energy fades, and the Witch Doctor fades back into the shadows.")
 
+            print("\n"*3)
+            
         # Count the number of werewolves
         num_werewolves = sum(1 for player in self.players if player.survived and player.role == 'Werewolf')
 
@@ -267,6 +274,8 @@ class WerewolfGame:
 
                 # Reset protection for the next round
                 player.protected_by_witch_doctor = False
+                
+        print("All werewolves retreat into the shadows.")
 
         # Hunter takes a shot after being attacked by werewolves
         hunters = [player for player in self.players if player.role == 'Hunter' and player.survived]
@@ -283,6 +292,9 @@ class WerewolfGame:
         # Seer action
         seer = next((player for player in self.players if player.survived and player.role == 'Seer'), None)
         if seer:
+            print("\n"*3)
+            print("Seer, wake up and use your mystical sight!")
+            
             target_name = input(f"{seer.name}, the Seer, choose a player to inspect: ")
             target = next((p for p in self.players if p.name == target_name and p.survived), None)
 
@@ -290,11 +302,18 @@ class WerewolfGame:
                 seer.seer_inspect(target)
             else:
                 print("Invalid target. The Seer chooses not to inspect anyone.")
+            
+            print("Seer, go back to sleep.\n")
+            print("\n"*3)
 
         # Drunker action
-        drunker = next((player for player in self.players if player.survived and player.role == 'Drunker'), None)
-        if drunker:
-            swap_decision = input(f"{drunker.name}, the Drunker, do you want to swap roles? (yes/no): ").lower()
+        drunkers = [player for player in self.players if player.survived and player.role == 'Drunker']
+        for drunker in drunkers:
+            print("\n"*3)
+            print(f"{drunker.name}, the Drunker, wake up and stumble around!")
+            
+            swap_decision = input(f"{drunker.name}, do you want to swap roles? (yes/no): ").lower()
+            
             if swap_decision == 'yes':
                 # Choose a random player to swap roles with
                 target = random.choice([p for p in self.players if p != drunker and p.survived])
@@ -303,25 +322,39 @@ class WerewolfGame:
                 drunker.role, target.role = target_role, drunker_role
             else:
                 print(f"{drunker.name} chooses not to swap roles.")
+                
+            print(f"{drunker.name}, go back to sleep.\n")
+            print("\n"*3)
 
         # Troublemaker action
         troublemaker = next((player for player in self.players if player.survived and player.role == 'Troublemaker'),
                             None)
         if troublemaker:
+            
+            print("\n"*3)
+            print("Troublemaker, wake up and start causing trouble!")
+            
             perform_action = input(
                 f"{troublemaker.name}, the Troublemaker, do you want to perform the action? (yes/no): ").lower()
             if perform_action == 'yes':
-                self.troublemaker_action(troublemaker)
+                troublemaker.troublemaker_action(self)
             else:
                 print(f"{troublemaker.name} chooses not to perform the action.")
+                
+            print("Troublemaker, go back to sleep.\n")
+            print("\n"*3)
+
+                
+        print("The night comes to an end")
 
     def day_phase(self):
         print("\nDay phase:")        
+        print("\nDay phase has begun. The sun rises, and the villagers gather.")
         
         votes = {player: 0 for player in self.players if player.survived}
 
         # Ask players if they want to vote someone out
-        vote_choice = input("Players, do you want to vote someone out? (yes/no): ").lower()
+        vote_choice = input("Villagers, do you want to vote someone out? (yes/no): ").lower()
 
         if vote_choice == 'yes':
             # Simulate the voting
@@ -342,7 +375,7 @@ class WerewolfGame:
             print(f"\n{max_votes_player.name} has been voted out!\n")
             max_votes_player.survived = False
         elif vote_choice == 'no':
-            print("Players decide not to vote anyone out this round.")
+            print("Villagers decide not to vote anyone out this round.")
         else:
             print("Invalid choice. Players decide not to vote anyone out this round.")
             
@@ -351,13 +384,17 @@ class WerewolfGame:
 
         for hunter in hunters:
             # Ask for confirmation
-            user_input = input(f"{hunter.name}, do you want to take a shot? (yes/no): ").lower()
+            user_input = input(f"{hunter.name}, do you want to take a shot during the day? (yes/no): ").lower()
 
             if user_input == 'yes':
                 # Call the hunter_shot method only if the player confirms
                 hunter.hunter_shot(self.players)
             else:
-                print(f"{hunter.name} decided not to take a shot.")
+                print(f"{hunter.name} decided not to take a shot during the day.")
+        
+        # End of Day phase
+        print("\nThe sun sets, and the villagers disperse. The night approaches.")
+        print("\n"*3)
 
 
     def check_game_status(self):
@@ -425,9 +462,9 @@ class WerewolfGame:
 
             # Display status after each night
             for player in self.players:
-                print('\n')
+                print('\n'*5)
                 player.display_status()
-            print('\n')
+            print('\n'*5)
 
             # Reveal the identities of the werewolves
             werewolves = [player.name for player in self.players if player.role == 'Werewolf' and player.survived]
