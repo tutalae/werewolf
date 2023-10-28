@@ -80,6 +80,23 @@ class Player:
                 print("Invalid target. The Hunter post-mortem chooses not to shoot anyone.")
         else:
             print(f"{self.name}, the Hunter, cannot shoot because they are already eliminated.")
+            
+    def troublemaker_action(self, troublemaker):
+        print(f"{troublemaker.name}, the Troublemaker, is causing trouble!")
+
+        # Choose two players to swap roles
+        player1_name = input("Enter the name of the first player to swap roles: ")
+        player1 = next((p for p in self.players if p.name == player1_name and p.survived), None)
+
+        player2_name = input("Enter the name of the second player to swap roles: ")
+        player2 = next((p for p in self.players if p.name == player2_name and p.survived), None)
+
+        if player1 and player2:
+            print(f"{troublemaker.name} is swapping the roles of {player1.name} and {player2.name}!")
+            player1_role, player2_role = player1.role, player2.role
+            player1.role, player2.role = player2_role, player1_role
+        else:
+            print("Invalid players. The Troublemaker chooses not to swap roles.")
 
     def vote_out(self, target):
         print(f"{self.name} votes to eliminate {target.name}!")
@@ -211,6 +228,8 @@ class WerewolfGame:
         max_hunters = len([player for player in self.players if player.role == 'Hunter' and player.survived])
 
         # Werewolf actions
+        print("Under the pale moonlight, the village falls silent. Werewolves, wake up!")
+        print("The werewolves are now seeking their prey...")
         if num_werewolves >= 2:
             # If there are two or more werewolves, they collectively choose one target
             werewolves = [player for player in self.players if player.survived and player.role == 'Werewolf']
@@ -295,23 +314,6 @@ class WerewolfGame:
                 self.troublemaker_action(troublemaker)
             else:
                 print(f"{troublemaker.name} chooses not to perform the action.")
-
-    def troublemaker_action(self, troublemaker):
-        print(f"{troublemaker.name}, the Troublemaker, is causing trouble!")
-
-        # Choose two players to swap roles
-        player1_name = input("Enter the name of the first player to swap roles: ")
-        player1 = next((p for p in self.players if p.name == player1_name and p.survived), None)
-
-        player2_name = input("Enter the name of the second player to swap roles: ")
-        player2 = next((p for p in self.players if p.name == player2_name and p.survived), None)
-
-        if player1 and player2:
-            print(f"{troublemaker.name} is swapping the roles of {player1.name} and {player2.name}!")
-            player1_role, player2_role = player1.role, player2.role
-            player1.role, player2.role = player2_role, player1_role
-        else:
-            print("Invalid players. The Troublemaker chooses not to swap roles.")
 
     def day_phase(self):
         print("\nDay phase:")        
