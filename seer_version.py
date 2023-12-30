@@ -58,7 +58,7 @@ class WerewolfGame:
         if villager_indices:
             seer_index = random.choice(villager_indices)
             roles[seer_index] = 'Seer'
-            print(f"The Seer is {self.players[seer_index].name}")
+            print(f"The Seer is {self.players[seer_index]   .name}")
 
         # Ensure there is exactly one Seer
         seer_count = roles.count('Seer')
