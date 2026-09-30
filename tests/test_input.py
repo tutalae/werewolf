@@ -1,15 +1,18 @@
 import unittest
 
+from tests.scripted import ScriptedConsole, make_players
 from werewolf.console import ask_int, ask_player, ask_yes_no
 from werewolf.game import ask_names
-
-from tests.scripted import ScriptedConsole, make_players
 
 
 class InputTest(unittest.TestCase):
     def test_ask_int_asks_again_until_valid(self):
         console = ScriptedConsole(["abc", "-1", "99", "4"])
         self.assertEqual(ask_int(console, "n: ", 3, 20), 4)
+
+    def test_ask_int_default_on_blank(self):
+        self.assertEqual(ask_int(ScriptedConsole([""]), "n: ", 0, 600, default=120), 120)
+        self.assertEqual(ask_int(ScriptedConsole(["30"]), "n: ", 0, 600, default=120), 30)
 
     def test_ask_yes_no(self):
         self.assertTrue(ask_yes_no(ScriptedConsole(["maybe", "Y"]), "?"))

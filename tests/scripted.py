@@ -24,6 +24,9 @@ class ScriptedConsole:
     def clear(self):
         self.output.append("<clear>")
 
+    def discuss(self, seconds):
+        self.output.append(f"<discuss {seconds}>")
+
     @property
     def text(self):
         return "\n".join(self.output)
@@ -34,7 +37,9 @@ def make_players(*specs):
     return [Player(name, ROLES[role]) for name, role in (spec.split(":") for spec in specs)]
 
 
-def make_game(answers, *specs, seed=0):
+def make_game(answers, *specs, seed=0, discussion_seconds=0):
     import random
     console = ScriptedConsole(answers)
-    return Game(make_players(*specs), console, random.Random(seed)), console
+    game = Game(make_players(*specs), console, random.Random(seed),
+                discussion_seconds=discussion_seconds)
+    return game, console

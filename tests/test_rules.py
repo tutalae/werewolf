@@ -1,11 +1,16 @@
 import random
 import unittest
 
-from werewolf.game import (build_roles, check_winner, default_role_counts, pick_attack_target,
-                           tally_votes, validate_counts)
-from werewolf.roles import VILLAGE, WEREWOLVES
-
 from tests.scripted import make_players
+from werewolf.game import (
+    build_roles,
+    check_winner,
+    default_role_counts,
+    pick_attack_target,
+    tally_votes,
+    validate_counts,
+)
+from werewolf.roles import VILLAGE, WEREWOLVES
 
 
 class CheckWinnerTest(unittest.TestCase):

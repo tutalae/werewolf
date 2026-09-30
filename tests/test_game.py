@@ -3,10 +3,9 @@
 import random
 import unittest
 
-from werewolf.game import setup
-from werewolf.roles import JESTER, VILLAGE, WEREWOLVES
-
 from tests.scripted import ScriptedConsole, make_game
+from werewolf.game import DEFAULT_DISCUSSION_SECONDS, default_role_counts, setup
+from werewolf.roles import JESTER, SPECIAL_ROLES, VILLAGE, WEREWOLVES
 
 
 class FullGameTest(unittest.TestCase):
@@ -48,6 +47,28 @@ class FullGameTest(unittest.TestCase):
         self.assertEqual(game.play(), WEREWOLVES)
         self.assertIn("No one is eliminated today.", console.output)
 
+    def test_lovers_die_together(self):
+        answers = ["ann", "bob",             # Cupid links Ann and Bob (Cupid's turn comes first)
+                   "ann"]                    # the wolf attacks Ann; Bob dies of a broken heart
+        game, console = make_game(answers, "Cu:Cupid", "Wolf:Werewolf", "Ann:Villager",
+                                  "Bob:Villager")
+        self.assertEqual(game.play(), WEREWOLVES)
+        self.assertIn("Bob dies of a broken heart.", console.output)
+
+    def test_discussion_happens_before_each_vote(self):
+        answers = ["bob", "cat", "ann", "ann"]
+        game, console = make_game(answers, "Ann:Werewolf", "Bob:Villager", "Cat:Villager",
+                                  "Dan:Villager", discussion_seconds=90)
+        game.play()
+        discuss = console.output.index("<discuss 90>")
+        self.assertLess(discuss, console.output.index("Time to vote. Type a name, or skip."))
+
+    def test_no_discussion_when_set_to_zero(self):
+        game, console = make_game(["bob", "cat", "ann", "ann"], "Ann:Werewolf", "Bob:Villager",
+                                  "Cat:Villager", "Dan:Villager")
+        game.play()
+        self.assertFalse(any(line.startswith("<discuss") for line in console.output))
+
     def test_roles_only_shown_in_private_turns(self):
         game, console = make_game(["bob"], "Ann:Werewolf", "Bob:Villager", "Cat:Villager")
         game.play()
@@ -62,22 +83,28 @@ class FullGameTest(unittest.TestCase):
                 self.assertTrue(private, line)
 
     def test_setup_with_default_roles(self):
-        console = ScriptedConsole(["x", "6", "Ann", "Bob", "Cat", "Dan", "Eve", "Fay", "yes"])
+        console = ScriptedConsole(["x", "6", "Ann", "Bob", "Cat", "Dan", "Eve", "Fay", "yes", ""])
         game = setup(console, random.Random(1))
         names = sorted(p.role.name for p in game.players)
-        self.assertEqual(names.count("Werewolf"), 2)
-        self.assertEqual(names.count("Seer"), 1)
+        expected = default_role_counts(6)
+        for role, count in expected.items():
+            self.assertEqual(names.count(role), count, role)
+        self.assertEqual(game.discussion_seconds, DEFAULT_DISCUSSION_SECONDS)
 
     def test_setup_with_custom_roles_retries_invalid_counts(self):
         # 4 players: first try 2 wolves (invalid), then 1 wolf + 1 Mayor
-        custom = ["no",
-                  "2", "0", "0", "0", "0", "0", "0", "0",
-                  "1", "0", "0", "0", "0", "1", "0", "0"]
+        roles_asked = 1 + len(SPECIAL_ROLES)
+        mayor = SPECIAL_ROLES.index("Mayor") + 1
+        first_try = ["2"] + ["0"] * (roles_asked - 1)
+        second_try = ["1"] + ["0"] * (roles_asked - 1)
+        second_try[mayor] = "1"
+        custom = ["no"] + first_try + second_try + ["0"]
         console = ScriptedConsole(["4", "Ann", "Bob", "Cat", "Dan"] + custom)
         game = setup(console, random.Random(1))
         self.assertEqual(sorted(p.role.name for p in game.players),
                          ["Mayor", "Villager", "Villager", "Werewolf"])
         self.assertIn("outnumbered", console.text)
+        self.assertEqual(game.discussion_seconds, 0)
 
 
 if __name__ == "__main__":

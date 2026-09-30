@@ -1,6 +1,7 @@
-from pymonad.maybe import Maybe, Just, Nothing
 from pymonad.either import Left, Right
+from pymonad.maybe import Just, Maybe, Nothing
 from pymonad.tools import curry
+
 
 @curry(2)
 def add(x, y):
