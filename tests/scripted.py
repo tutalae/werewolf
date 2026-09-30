@@ -1,15 +1,18 @@
 """A fake console that plays back scripted answers, for testing."""
 
-from werewolf.game import Game, Player
+import random
+
+from werewolf.console import BaseConsole
+from werewolf.game import Game, GameOptions, Player
 from werewolf.roles import ROLES
 
 
-class ScriptedConsole:
+class ScriptedConsole(BaseConsole):
     def __init__(self, answers=()):
         self.answers = list(answers)
         self.output = []
 
-    def say(self, text=""):
+    def say(self, text="", style=None):
         self.output.append(text)
 
     def ask(self, prompt):
@@ -27,6 +30,10 @@ class ScriptedConsole:
     def discuss(self, seconds):
         self.output.append(f"<discuss {seconds}>")
 
+    def table(self, title, headers, rows):
+        # e.g. "Votes: Ann 2, Cat 1"
+        self.output.append(f"{title}: " + ", ".join(" ".join(map(str, row)) for row in rows))
+
     @property
     def text(self):
         return "\n".join(self.output)
@@ -37,9 +44,9 @@ def make_players(*specs):
     return [Player(name, ROLES[role]) for name, role in (spec.split(":") for spec in specs)]
 
 
-def make_game(answers, *specs, seed=0, discussion_seconds=0):
-    import random
+def make_game(answers, *specs, seed=0, **options):
+    """A game with the given players. Options default to no discussion timer."""
     console = ScriptedConsole(answers)
-    game = Game(make_players(*specs), console, random.Random(seed),
-                discussion_seconds=discussion_seconds)
+    options.setdefault("discussion_seconds", 0)
+    game = Game(make_players(*specs), console, random.Random(seed), GameOptions(**options))
     return game, console

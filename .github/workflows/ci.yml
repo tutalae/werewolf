@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
-      - run: pip install ruff mypy
+      - run: pip install ruff mypy rich
       - run: ruff check .
       - run: mypy
 
@@ -29,7 +29,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m unittest -v
+      - name: Tests without rich (plain console)
+        run: python -m unittest -v
+      - name: Tests with rich
+        run: |
+          pip install rich
+          python -m unittest -v
       - name: Balance report
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14'
         run: python -m werewolf.simulate --games 500 >> "$GITHUB_STEP_SUMMARY"

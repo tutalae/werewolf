@@ -4,8 +4,9 @@ import random
 import unittest
 
 from tests.scripted import ScriptedConsole, make_game
-from werewolf.game import DEFAULT_DISCUSSION_SECONDS, default_role_counts, setup
+from werewolf.game import GameOptions, setup
 from werewolf.roles import JESTER, SPECIAL_ROLES, VILLAGE, WEREWOLVES
+from werewolf.rules import default_role_counts
 
 
 class FullGameTest(unittest.TestCase):
@@ -61,7 +62,7 @@ class FullGameTest(unittest.TestCase):
                                   "Dan:Villager", discussion_seconds=90)
         game.play()
         discuss = console.output.index("<discuss 90>")
-        self.assertLess(discuss, console.output.index("Time to vote. Type a name, or skip."))
+        self.assertLess(discuss, console.output.index("Time to vote. Type a name or number, or s to skip."))
 
     def test_no_discussion_when_set_to_zero(self):
         game, console = make_game(["bob", "cat", "ann", "ann"], "Ann:Werewolf", "Bob:Villager",
@@ -83,13 +84,13 @@ class FullGameTest(unittest.TestCase):
                 self.assertTrue(private, line)
 
     def test_setup_with_default_roles(self):
-        console = ScriptedConsole(["x", "6", "Ann", "Bob", "Cat", "Dan", "Eve", "Fay", "yes", ""])
+        console = ScriptedConsole(["x", "6", "Ann", "Bob", "Cat", "Dan", "Eve", "Fay", "yes", "yes"])
         game = setup(console, random.Random(1))
         names = sorted(p.role.name for p in game.players)
         expected = default_role_counts(6)
         for role, count in expected.items():
             self.assertEqual(names.count(role), count, role)
-        self.assertEqual(game.discussion_seconds, DEFAULT_DISCUSSION_SECONDS)
+        self.assertEqual(game.options, GameOptions())
 
     def test_setup_with_custom_roles_retries_invalid_counts(self):
         # 4 players: first try 2 wolves (invalid), then 1 wolf + 1 Mayor
@@ -98,13 +99,48 @@ class FullGameTest(unittest.TestCase):
         first_try = ["2"] + ["0"] * (roles_asked - 1)
         second_try = ["1"] + ["0"] * (roles_asked - 1)
         second_try[mayor] = "1"
-        custom = ["no"] + first_try + second_try + ["0"]
+        options = ["no", "0", "no", "no", "yes"]  # custom: no timer, hide roles, peaceful night 1, secret
+        custom = ["no"] + first_try + second_try + options
         console = ScriptedConsole(["4", "Ann", "Bob", "Cat", "Dan"] + custom)
         game = setup(console, random.Random(1))
         self.assertEqual(sorted(p.role.name for p in game.players),
                          ["Mayor", "Villager", "Villager", "Werewolf"])
         self.assertIn("outnumbered", console.text)
-        self.assertEqual(game.discussion_seconds, 0)
+        self.assertEqual(game.options, GameOptions(discussion_seconds=0, reveal_roles_on_death=False,
+                                                   first_night_kills=False, secret_ballot=True))
+
+
+class OptionsTest(unittest.TestCase):
+    def test_roles_stay_secret_on_death_when_option_is_off(self):
+        game, console = make_game(["bob", "cat", "ann", "ann"], "Ann:Werewolf", "Bob:Villager",
+                                  "Cat:Villager", "Dan:Villager", reveal_roles_on_death=False)
+        game.play()
+        self.assertIn("Bob has been eliminated. Their role stays secret.", console.output)
+        self.assertNotIn("They were the", console.text)
+        self.assertIn("Final roles: Ann Werewolf eliminated, Bob Villager eliminated, "
+                      "Cat Villager alive, Dan Villager alive", console.output)
+
+    def test_no_kill_on_first_night(self):
+        answers = ["cat", "ann", "ann", "ann"]   # day 1: Ann, Bob, Cat, Dan vote Ann out
+        game, console = make_game(answers, "Ann:Werewolf", "Bob:Villager", "Cat:Villager",
+                                  "Dan:Villager", first_night_kills=False)
+        self.assertEqual(game.play(), VILLAGE)
+        self.assertIn("Nobody was killed last night.", console.output)
+
+    def test_secret_ballot_votes_in_private(self):
+        answers = ["bob", "cat", "ann", "ann"]
+        game, console = make_game(answers, "Ann:Werewolf", "Bob:Villager", "Cat:Villager",
+                                  "Dan:Villager", secret_ballot=True)
+        self.assertEqual(game.play(), VILLAGE)
+        self.assertIn("Time for a secret vote. Each player votes in private.", console.output)
+        # Each vote prompt comes right after that voter is handed the device
+        for voter in ("Ann", "Cat", "Dan"):
+            prompt = next(i for i, line in enumerate(console.output)
+                          if line.startswith(f"{voter}, who do you vote"))
+            handoff = max(i for i, line in enumerate(console.output[:prompt])
+                          if line.startswith("Pass the device"))
+            self.assertTrue(console.output[handoff].startswith(f"Pass the device to {voter}."))
+            self.assertNotIn("<clear>", console.output[handoff:prompt])
 
 
 if __name__ == "__main__":

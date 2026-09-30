@@ -1,12 +1,12 @@
 import random
 
-from .console import Console
+from .console import make_console
 from .game import setup
 
 
 def main() -> None:
     try:
-        setup(Console(), random.Random()).play()
+        setup(make_console(), random.Random()).play()
     except (KeyboardInterrupt, EOFError):
         print("\nGame cancelled.")
 

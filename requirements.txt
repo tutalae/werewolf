@@ -1,1 +1,2 @@
+rich>=13      # optional: colours and tables in the terminal
 pymonad>=2.4  # only needed for monad_concept.py
