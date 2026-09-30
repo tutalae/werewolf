@@ -14,70 +14,56 @@ from __future__ import annotations
 
 import argparse
 import random
-import re
 from collections import Counter
+from collections.abc import Sequence
+from typing import Literal, overload
 
-from .game import Game, Player, build_roles, default_role_counts, validate_counts
+from .console import BaseConsole, Style
+from .game import Game, Player
 from .roles import JESTER, ROLES, VILLAGE, WEREWOLVES
-
-CHOICES = re.compile(r"\[(.*)\]: $")
-ACTOR = re.compile(r"^(?:Pass the device to |)(.+?)(?:\. |, who do you)")
-SPOTTED = re.compile(r"^You spot (.+) among the werewolves\.$")
+from .rules import build_roles, default_role_counts, validate_counts
 
 
-class BotConsole:
-    """Answers the game's prompts on behalf of whoever is acting."""
+class BotConsole(BaseConsole):
+    """Makes every decision for whichever player is asked, and ignores all output."""
 
     def __init__(self, rng: random.Random):
         self.rng = rng
-        self.game: Game | None = None
-        self.actor: Player | None = None
 
-    def say(self, text: str = "") -> None:
-        # The Little Girl remembers who she spotted
-        match = SPOTTED.match(text)
-        if match and self.actor:
-            self.actor.memory.setdefault("known_wolves", set()).add(self.find(match.group(1)))
-
-    def clear(self) -> None:
+    def say(self, text: str = "", style: Style = None) -> None:
         pass
-
-    def discuss(self, seconds: int) -> None:
-        pass
-
-    def find(self, name: str) -> Player:
-        assert self.game is not None
-        return next(p for p in self.game.players if p.name.lower() == name.lower())
 
     def ask(self, prompt: str) -> str:
-        actor = ACTOR.match(prompt)
-        if actor and self.game and any(p.name == actor.group(1) for p in self.game.players):
-            self.actor = self.find(actor.group(1))
-        if "yes/no" in prompt:
-            return self.rng.choice(["yes", "no"])
-        match = CHOICES.search(prompt)
-        if not match:
-            return ""  # "press Enter" prompts
-        names = [n for n in match.group(1).replace(", or skip", "").split(", ")]
-        return self.choose(prompt, [self.find(n) for n in names]).name
+        return ""  # only "press Enter" prompts reach here
 
-    def choose(self, prompt: str, options: list[Player]) -> Player:
-        me = self.actor
-        assert me is not None
-        known: list[Player] = [p for p in me.memory.get("known_wolves", ()) if p in options]
+    def confirm(self, prompt: str, who: Player | None = None) -> bool:
+        return self.rng.random() < 0.5
 
+    @overload
+    def choose_player(self, prompt: str, candidates: Sequence[Player],
+                      allow_skip: Literal[False] = False, who: Player | None = None) -> Player: ...
+    @overload
+    def choose_player(self, prompt: str, candidates: Sequence[Player],
+                      allow_skip: Literal[True], who: Player | None = None) -> Player | None: ...
+    def choose_player(self, prompt: str, candidates: Sequence[Player],
+                      allow_skip: bool = False, who: Player | None = None) -> Player | None:
+        options = list(candidates)
+        if who is None:
+            return self.rng.choice(options)
+
+        inspected = who.memory.get("inspected", {})
         if "inspect" in prompt:
-            unseen = [p for p in options if p not in me.memory.get("inspected", ())]
-            target = self.rng.choice(unseen or options)
-            me.memory.setdefault("inspected", set()).add(target)
-            if target.role.looks_like_werewolf:
-                me.memory.setdefault("known_wolves", set()).add(target)
-            return target
+            unseen = [p for p in options if p.name not in inspected]
+            return self.rng.choice(unseen or options)
+
         if "vote" in prompt or "shoot" in prompt:
-            if me.is_werewolf:
+            if who.is_werewolf:
                 options = [p for p in options if not p.is_werewolf] or options
-            elif known:
-                return self.rng.choice(known)
+            else:
+                known = {name for name, wolf in inspected.items() if wolf} | who.memory.get("spotted", set())
+                suspects = [p for p in options if p.name in known]
+                if suspects:
+                    return self.rng.choice(suspects)
         return self.rng.choice(options)
 
 
@@ -87,9 +73,7 @@ def simulate(counts: dict[str, int], num_players: int, games: int, seed: int = 0
     for _ in range(games):
         roles = build_roles(counts, num_players)
         rng.shuffle(roles)
-        console = BotConsole(rng)
-        game = Game([Player(f"P{i}", role) for i, role in enumerate(roles)], console, rng)
-        console.game = game
+        game = Game([Player(f"P{i}", role) for i, role in enumerate(roles)], BotConsole(rng), rng)
         winners[game.play()] += 1
     return winners
 

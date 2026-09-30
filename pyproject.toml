@@ -4,10 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "werewolf"
-version = "0.2.0"
+version = "0.3.0"
 description = "A pass-the-device Werewolf party game for the terminal"
 readme = "README.md"
 requires-python = ">=3.10"
+# Optional at runtime: without rich, the game falls back to plain text
+dependencies = ["rich>=13"]
 
 [project.scripts]
 werewolf = "werewolf.__main__:main"
