@@ -1,6 +1,9 @@
 import random
 from pymonad.either import Left, Right
 
+# Set to True to print every player's role (useful for debugging)
+SHOW_ROLES = False
+
 class Player:
     def __init__(self, name, role):
         self.name = name
@@ -49,53 +52,60 @@ class WerewolfGame:
             self.players.append(player)
 
         print("\nRoles have been assigned.")
-        for player in self.players:
-            print(f"{player.name}: {player.role}")
-
-        print("\nThe werewolves are:")
-        werewolves = [player.name for player in self.players if player.role == 'Werewolf']
-        print(", ".join(werewolves))
+        if SHOW_ROLES:
+            for player in self.players:
+                print(f"{player.name}: {player.role}")
 
         print("\nIt's a full moon night, and the werewolves are on the hunt.\n")
+
+    def check_winner(self):
+        num_werewolves = sum(1 for player in self.players if player.survived and player.role == 'Werewolf')
+        num_villagers = sum(1 for player in self.players if player.survived and player.role != 'Werewolf')
+
+        if num_werewolves == 0:
+            return 'Villagers'
+        if num_werewolves >= num_villagers:
+            return 'Werewolves'
+        return None
+
+    def find_target(self, target_name):
+        # Werewolves can only attack living non-werewolves
+        return next((p for p in self.players
+                     if p.name == target_name and p.survived and p.role != 'Werewolf'), None)
+
+    def random_target(self):
+        return random.choice([p for p in self.players if p.survived and p.role != 'Werewolf'])
 
     def night_phase(self):
         print("\nNight phase:")
 
-        # Count the number of werewolves
         num_werewolves = sum(1 for player in self.players if player.survived and player.role == 'Werewolf')
-        num_villagers = sum(1 for player in self.players if player.survived and player.role == 'Villager')
-
-        if num_werewolves == 0 or num_werewolves >= num_villagers:
-            print("Game over! Werewolves have taken over or no werewolves left.")
-            return
 
         if num_werewolves >= 2:
             # If there are two or more werewolves, they collectively choose one target
             werewolves = [player for player in self.players if player.survived and player.role == 'Werewolf']
             target_name = input("Werewolves, collectively choose a player to attack: ")
-            target = next((p for p in self.players if p.name == target_name and p.survived), None)
+            target = self.find_target(target_name)
 
             if target:
                 for werewolf in werewolves:
                     werewolf.werewolf_attack(target)
             else:
                 print("Invalid target. The werewolves attack a random player.")
-                target = random.choice([p for p in self.players if p.survived])
+                target = self.random_target()
                 for werewolf in werewolves:
                     werewolf.werewolf_attack(target)
         else:
-            # Each werewolf chooses a target to attack
-            for player in self.players:
-                if player.survived and player.role == 'Werewolf':
-                    target_name = input(f"{player.name}, choose a player to attack: ")
-                    target = next((p for p in self.players if p.name == target_name and p.survived), None)
+            # The lone werewolf chooses a target to attack
+            werewolf = next(p for p in self.players if p.survived and p.role == 'Werewolf')
+            target_name = input(f"{werewolf.name}, choose a player to attack: ")
+            target = self.find_target(target_name)
 
-                    if target:
-                        player.werewolf_attack(target)
-                    else:
-                        print("Invalid target. The werewolf attacks a random player.")
-                        target = random.choice([p for p in self.players if p != player and p.survived])
-                        player.werewolf_attack(target)
+            if target:
+                werewolf.werewolf_attack(target)
+            else:
+                print("Invalid target. The werewolf attacks a random player.")
+                werewolf.werewolf_attack(self.random_target())
 
     def day_phase(self):
         print("\nDay phase:")
@@ -130,24 +140,21 @@ class WerewolfGame:
 
     def play(self):
         round_number = 1
-        while True:
+        winner = self.check_winner()
+        while winner is None:
             print(f"\nNight {round_number}:")
             self.night_phase()
-
-            # Check if the game should continue
-            remaining_players = [player for player in self.players if player.survived]
-            if len(remaining_players) <= 1:
-                break
 
             # Display status after each night
             for player in self.players:
                 player.display_status()
 
+            remaining_players = [player for player in self.players if player.survived]
             print(f"\nNumber of people survived after Night {round_number}: {len(remaining_players)}\n")
 
-            # Reveal the identities of the werewolves
-            werewolves = [player.name for player in self.players if player.role == 'Werewolf']
-            print("Werewolves revealed:", ", ".join(werewolves), "\n")
+            winner = self.check_winner()
+            if winner:
+                break
 
             # Day phase
             self.day_phase()
@@ -155,21 +162,20 @@ class WerewolfGame:
             # Display survivors after each day
             self.display_survivors()
 
-            # Count and display the number of players for each role
+            winner = self.check_winner()
+            if winner:
+                break
+
             num_werewolves = sum(1 for player in self.players if player.survived and player.role == 'Werewolf')
-            num_villagers = sum(1 for player in self.players if player.survived and player.role == 'Villager')
-
-            # Check if the game should continue
-            remaining_players = [player for player in self.players if player.survived]
-            if num_werewolves == num_villagers:
-                break
-            if num_werewolves == 0:
-                break
-
+            num_villagers = sum(1 for player in self.players if player.survived and player.role != 'Werewolf')
             print(f"\nNumber of Werewolves: {num_werewolves}")
             print(f"Number of Villagers: {num_villagers}")
 
             round_number += 1
+
+        print(f"\nGame over! The {winner} win!")
+        werewolves = [player.name for player in self.players if player.role == 'Werewolf']
+        print("The werewolves were:", ", ".join(werewolves))
 
 if __name__ == "__main__":
     game = WerewolfGame()
