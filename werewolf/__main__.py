@@ -4,7 +4,7 @@ from .console import Console
 from .game import setup
 
 
-def main():
+def main() -> None:
     try:
         setup(Console(), random.Random()).play()
     except (KeyboardInterrupt, EOFError):
