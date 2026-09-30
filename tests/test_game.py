@@ -1,0 +1,84 @@
+"""Full scripted games, from role reveal to the winner."""
+
+import random
+import unittest
+
+from werewolf.game import setup
+from werewolf.roles import JESTER, VILLAGE, WEREWOLVES
+
+from tests.scripted import ScriptedConsole, make_game
+
+
+class FullGameTest(unittest.TestCase):
+    def test_werewolves_win_by_reaching_parity_overnight(self):
+        # Night 1: the wolf kills Bob, leaving 1 wolf vs 1 villager. No day vote happens.
+        game, console = make_game(["bob"], "Ann:Werewolf", "Bob:Villager", "Cat:Villager")
+        self.assertEqual(game.play(), WEREWOLVES)
+        self.assertNotIn("Time to vote", console.text)
+
+    def test_village_wins_by_voting_out_the_werewolf(self):
+        answers = ["bob",                   # Ann (wolf) attacks Bob
+                   "cat", "ann", "ann"]     # Ann, Cat and Dan vote
+        game, console = make_game(answers, "Ann:Werewolf", "Bob:Villager", "Cat:Villager",
+                                  "Dan:Villager")
+        self.assertEqual(game.play(), VILLAGE)
+        self.assertIn("Votes: Ann 2, Cat 1", console.output)
+
+    def test_jester_wins_when_voted_out(self):
+        answers = ["bob",                        # Ann (wolf) attacks Bob
+                   "jo", "ann", "jo", "jo"]      # Ann, Jo, Dan and Eve vote
+        game, _ = make_game(answers, "Ann:Werewolf", "Bob:Villager", "Jo:Jester", "Dan:Villager",
+                            "Eve:Villager")
+        self.assertEqual(game.play(), JESTER)
+
+    def test_hunter_shoots_when_killed(self):
+        answers = ["hal",                   # Ann (wolf) attacks Hal the Hunter
+                   "ann"]                   # Hal shoots Ann on the way out
+        game, console = make_game(answers, "Ann:Werewolf", "Hal:Hunter", "Cat:Villager",
+                                  "Dan:Villager")
+        self.assertEqual(game.play(), VILLAGE)
+        self.assertIn("Hal shoots Ann!", console.output)
+
+    def test_tied_vote_eliminates_no_one(self):
+        answers = ["bob",                   # night 1: Ann attacks Bob
+                   "cat", "ann", "skip",    # Ann, Cat, Dan vote: tie between Cat and Ann and skip
+                   "cat"]                   # night 2: Ann attacks Cat -> parity
+        game, console = make_game(answers, "Ann:Werewolf", "Bob:Villager", "Cat:Villager",
+                                  "Dan:Villager")
+        self.assertEqual(game.play(), WEREWOLVES)
+        self.assertIn("No one is eliminated today.", console.output)
+
+    def test_roles_only_shown_in_private_turns(self):
+        game, console = make_game(["bob"], "Ann:Werewolf", "Bob:Villager", "Cat:Villager")
+        game.play()
+        # Every "you are the ..." line sits between a hand-off prompt and a screen clear
+        private = False
+        for line in console.output:
+            if line.startswith("Pass the device"):
+                private = True
+            elif line == "<clear>":
+                private = False
+            elif "you are the" in line:
+                self.assertTrue(private, line)
+
+    def test_setup_with_default_roles(self):
+        console = ScriptedConsole(["x", "6", "Ann", "Bob", "Cat", "Dan", "Eve", "Fay", "yes"])
+        game = setup(console, random.Random(1))
+        names = sorted(p.role.name for p in game.players)
+        self.assertEqual(names.count("Werewolf"), 2)
+        self.assertEqual(names.count("Seer"), 1)
+
+    def test_setup_with_custom_roles_retries_invalid_counts(self):
+        # 4 players: first try 2 wolves (invalid), then 1 wolf + 1 Mayor
+        custom = ["no",
+                  "2", "0", "0", "0", "0", "0", "0", "0",
+                  "1", "0", "0", "0", "0", "1", "0", "0"]
+        console = ScriptedConsole(["4", "Ann", "Bob", "Cat", "Dan"] + custom)
+        game = setup(console, random.Random(1))
+        self.assertEqual(sorted(p.role.name for p in game.players),
+                         ["Mayor", "Villager", "Villager", "Werewolf"])
+        self.assertIn("outnumbered", console.text)
+
+
+if __name__ == "__main__":
+    unittest.main()
